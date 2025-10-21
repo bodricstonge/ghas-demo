@@ -1,6 +1,5 @@
 from flask import Flask, render_template_string, redirect, url_for
 import os
-import sqlite3
 
 app = Flask(__name__)
 COUNT_FILE = 'race_count.txt'
@@ -35,21 +34,26 @@ if __name__ == '__main__':
     app.run(debug=True)
 
 
-conn = sqlite3.connect('example.db')
-cursor = conn.cursor()
-
-# 1. Simulate a request handler for a vulnerable endpoint
-def user_search_endpoint():
-    # 2. Get untrusted input (this is the 'tainted' data source)
-    user_id = request.args.get('id')
-
-    # 3. VULNERABLE SINK: Directly concatenating the untrusted input 
-    # into the SQL query string.
-    # CodeQL will identify the flow of data from 'request.args.get' (source)
-    # to the string concatenation inside the 'query' variable (sink).
-    query = "SELECT username, email FROM users WHERE id = " + user_id + ";"
+# --- VULNERABLE FUNCTION ---
+@app.route('/welcome')
+def welcome_user():
+    # 1. Get untrusted user input from the URL query parameters
+    user_name = request.args.get('name', 'Guest')
     
-    # 4. Execute the query
-    cursor.execute(query)
+    # 2. VULNERABLE: Direct insertion of untrusted input into HTML 
+    # without proper sanitization or auto-escaping.
+    # In some contexts (like using certain methods or disabling auto-escaping), 
+    # the templating engine can be tricked or explicitly told to render raw content.
     
-    return "Query executed."
+    # CodeQL often flags sinks like 'render_template_string' when they directly
+    # process unsanitized user input (the 'user_name' variable).
+    
+    html_template = f"<h1>Welcome, {user_name}!</h1>"
+    
+    # If a malicious user passes the payload: ?name=<script>alert('XSS')</script>
+    # The resulting page will execute the script.
+    return render_template_string(html_template)
+
+if __name__ == '__main__':
+    # This snippet is for demonstration; do not run with debug=True in production.
+    app.run(debug=True)
