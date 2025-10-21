@@ -32,3 +32,11 @@ def add():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+
+def vulnerable_login_query(username, password):
+    # This is the VULNERABLE part: direct string concatenation of user input
+    # into the SQL query string.
+    query = "SELECT * FROM users WHERE username = '" + username + \
+            "' AND password = '" + password + "';"
+    return query
