@@ -1,5 +1,6 @@
-from flask import Flask, render_template_string, redirect, url_for
+from flask import Flask, request, render_template_string, redirect, url_for
 import os
+import sqlite3
 
 app = Flask(__name__)
 COUNT_FILE = 'race_count.txt'
@@ -32,3 +33,14 @@ def add():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+# CodeQL recognizes this as a database connection context.
+conn = sqlite3.connect('example.db') 
+cursor = conn.cursor()
+
+def user_search_endpoint():
+    user_id = request.args.get('id')
+    # This is the VULNERABLE pattern CodeQL looks for
+    query = "SELECT username, email FROM users WHERE id = " + user_id + ";"
+    cursor.execute(query) # CodeQL recognizes this as the dangerous 'sink'.
+    return "Query executed."
