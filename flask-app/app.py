@@ -34,9 +34,21 @@ if __name__ == '__main__':
     app.run(debug=True)
 
 
-def vulnerable_login_query(username, password):
-    # This is the VULNERABLE part: direct string concatenation of user input
+conn = sqlite3.connect('example.db')
+cursor = conn.cursor()
+
+# 1. Simulate a request handler for a vulnerable endpoint
+def user_search_endpoint():
+    # 2. Get untrusted input (this is the 'tainted' data source)
+    user_id = request.args.get('id')
+
+    # 3. VULNERABLE SINK: Directly concatenating the untrusted input 
     # into the SQL query string.
-    query = "SELECT * FROM users WHERE username = '" + username + \
-            "' AND password = '" + password + "';"
-    return query
+    # CodeQL will identify the flow of data from 'request.args.get' (source)
+    # to the string concatenation inside the 'query' variable (sink).
+    query = "SELECT username, email FROM users WHERE id = " + user_id + ";"
+    
+    # 4. Execute the query
+    cursor.execute(query)
+    
+    return "Query executed."
