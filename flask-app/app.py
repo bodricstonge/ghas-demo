@@ -1,5 +1,6 @@
-from flask import Flask, render_template_string, redirect, url_for
+from flask import Flask, request, render_template_string, redirect, url_for
 import os
+import sqlite3
 
 app = Flask(__name__)
 COUNT_FILE = 'race_count.txt'
@@ -33,27 +34,13 @@ def add():
 if __name__ == '__main__':
     app.run(debug=True)
 
+# CodeQL recognizes this as a database connection context.
+conn = sqlite3.connect('example.db') 
+cursor = conn.cursor()
 
-# --- VULNERABLE FUNCTION ---
-@app.route('/welcome')
-def welcome_user():
-    # 1. Get untrusted user input from the URL query parameters
-    user_name = request.args.get('name', 'Guest')
-    
-    # 2. VULNERABLE: Direct insertion of untrusted input into HTML 
-    # without proper sanitization or auto-escaping.
-    # In some contexts (like using certain methods or disabling auto-escaping), 
-    # the templating engine can be tricked or explicitly told to render raw content.
-    
-    # CodeQL often flags sinks like 'render_template_string' when they directly
-    # process unsanitized user input (the 'user_name' variable).
-    
-    html_template = f"<h1>Welcome, {user_name}!</h1>"
-    
-    # If a malicious user passes the payload: ?name=<script>alert('XSS')</script>
-    # The resulting page will execute the script.
-    return render_template_string(html_template)
-
-if __name__ == '__main__':
-    # This snippet is for demonstration; do not run with debug=True in production.
-    app.run(debug=True)
+def user_search_endpoint():
+    user_id = request.args.get('id')
+    # This is the VULNERABLE pattern CodeQL looks for
+    query = "SELECT username, email FROM users WHERE id = " + user_id + ";"
+    cursor.execute(query) # CodeQL recognizes this as the dangerous 'sink'.
+    return "Query executed."
